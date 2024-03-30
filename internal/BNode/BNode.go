@@ -1,7 +1,6 @@
 package bnode
 
 import (
-	"bytes"
 	"encoding/binary"
 
 	"github.com/toastsandwich/create-database/consts"
@@ -136,18 +135,62 @@ func (n *BNode) Nbyte() uint16 {
 	return n.KVPos(n.NKeys())
 }
 
-// Looks up the index of the first key-value pair in the node whose key is less than or equal to the given key.
-func NodeLookUpLE(n BNode, key []byte) uint16 {
-	nkeys := n.NKeys()
-	found := uint16(0)
-	for i := uint16(1); i < nkeys; i++ {
-		cmp := bytes.Compare(n.GetKey(i), key)
-		if cmp <= 0 {
-			found = i
-		}
-		if cmp >= 0 {
-			break
-		}
+// This lookup wil ignore first key since it has already compared from parent node.
+// works for both internal and leaf node.
+
+//-------------------------------
+
+// add a new key to a leaf node
+func LeafInsert(
+	new BNode, old BNode, idx uint16,
+	key []byte, val []byte,
+) {
+	new.SetHeader(consts.BNODE_BLEAF, old.NKeys()+1)
+	NodeAppendRange(new, old, 0, 0, idx)
+	NodeAppendKV(new, idx, 0, key, val)
+	NodeAppendRange(new, old, idx+1, idx, old.NKeys()-idx)
+}
+
+//nodeAppendRange function copies keys from an old node to a new node
+
+// copy multiple KVs into the poition
+func NodeAppendRange(
+	new BNode, old BNode,
+	dstNew uint16, srcOld uint16, n uint16,
+) {
+	utils.Assert(srcOld+n <= old.NKeys())
+	utils.Assert(dstNew+n <= new.NKeys())
+	if n == 0 {
+		return
 	}
-	return found
+
+	// pointers
+	for i := uint16(0); i < n; i++ {
+		new.SetPtr(dstNew+i, old.GetPtr(srcOld+i))
+	}
+	// offsets
+	dstBegin := new.GetOffset(dstNew)
+	srcBegin := old.GetOffset(srcOld)
+	for i := uint16(1); i <= n; i++ {
+		offset := dstBegin + old.GetOffset(srcOld+i) - srcBegin
+		new.SetOffset(dstNew+i, offset)
+	}
+
+	//KVs
+	begin := old.KVPos(srcOld)
+	end := old.KVPos(srcOld + n)
+	copy(new.Data[new.KVPos(dstNew):], old.Data[begin:end])
+}
+
+func NodeAppendKV(new BNode, idx uint16, ptr uint64, key []byte, val []byte) {
+	// ptrs
+	new.SetPtr(idx, ptr)
+	// KVs
+	pos := new.KVPos(idx)
+	binary.LittleEndian.PutUint16(new.Data[pos+0:], uint16(len(key)))
+	binary.LittleEndian.PutUint16(new.Data[pos+2:], uint16(len(val)))
+	copy(new.Data[pos+4:], key)
+	copy(new.Data[pos+4+uint16(len(key)):], val)
+	// the offset of next key
+	new.SetOffset(idx+1, new.GetOffset(idx)+4+uint16(len(key)+len(val)))
 }
