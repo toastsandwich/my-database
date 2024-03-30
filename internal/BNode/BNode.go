@@ -43,26 +43,32 @@ type BNode struct {
 // node is just an array of bytes so adding sime helper funcitons to access its content
 
 // header
+// This method retrieves the B-tree node's type from its header.
 func (n *BNode) BType() uint16 {
 	return binary.LittleEndian.Uint16(n.Data)
 }
 
+// This method retrieves the number of keys stored in the node from its header.
 func (n *BNode) NKeys() uint16 {
 	return binary.LittleEndian.Uint16(n.Data[2:4])
 }
 
+// This method sets the header of the B-tree node, including its type and the number of keys.
 func (n *BNode) SetHeader(btype, nkeys uint16) {
 	binary.LittleEndian.PutUint16(n.Data[0:2], btype)
 	binary.LittleEndian.PutUint16(n.Data, nkeys)
 }
 
 // pointer
+
+// This method retrieves the pointer stored at a specific index within the node.
 func (n *BNode) GetPtr(idx uint16) uint64 {
 	utils.Assert(idx < n.NKeys())
 	pos := consts.HEADER + 8*idx
 	return binary.LittleEndian.Uint64(n.Data[pos:])
 }
 
+// This method sets the pointer at a specific index within the node to the provided value.
 func (n *BNode) SetPtr(idx uint16, val uint64) {
 	utils.Assert(idx < n.NKeys())
 	pos := consts.HEADER + 8*idx
@@ -78,11 +84,14 @@ determine the size of the node.
 */
 
 // offset list
+
+// Calculates the byte offset within the node's Data slice where the offset for a specific key-value pair is stored.
 func OffsetPos(n *BNode, idx uint16) uint16 {
 	utils.Assert(1 <= idx && idx <= n.NKeys())
 	return consts.HEADER + 8*n.NKeys() + 2*(idx-1)
 }
 
+// Retrieves the offset for a specific key-value pair within the node.
 func (n *BNode) GetOffset(idx uint16) uint16 {
 	if idx == 0 {
 		return 0
@@ -90,6 +99,7 @@ func (n *BNode) GetOffset(idx uint16) uint16 {
 	return binary.LittleEndian.Uint16(n.Data[OffsetPos(n, idx):])
 }
 
+// Sets the offset for a specific key-value pair within the node.
 func (n *BNode) SetOffset(idx, offset uint16) {
 	binary.LittleEndian.PutUint16(n.Data[OffsetPos(n, idx):], offset)
 }
@@ -98,11 +108,13 @@ func (n *BNode) SetOffset(idx, offset uint16) {
 
 // key-values
 
+// Calculates the byte position within the node's Data slice where a specific key-value pair is stored.
 func (n *BNode) KVPos(idx uint16) uint16 {
 	utils.Assert(idx <= n.NKeys())
 	return consts.HEADER + 8*n.NKeys() + 2*n.NKeys() + n.GetOffset(idx)
 }
 
+// Retrieves the key associated with a specific index within the node
 func (n *BNode) GetKey(idx uint16) []byte {
 	utils.Assert(idx <= n.NKeys())
 	pos := n.KVPos(idx)
@@ -110,6 +122,7 @@ func (n *BNode) GetKey(idx uint16) []byte {
 	return n.Data[pos+4:][:klen]
 }
 
+// Retrieves the value associated with a specific index within the node.
 func (n *BNode) GetVal(idx uint16) []byte {
 	utils.Assert(idx <= n.NKeys())
 	pos := n.KVPos(idx)
@@ -123,8 +136,7 @@ func (n *BNode) Nbyte() uint16 {
 	return n.KVPos(n.NKeys())
 }
 
-// look up key func
-// returns the first child node whose range intersects the key.
+// Looks up the index of the first key-value pair in the node whose key is less than or equal to the given key.
 func NodeLookUpLE(n BNode, key []byte) uint16 {
 	nkeys := n.NKeys()
 	found := uint16(0)
