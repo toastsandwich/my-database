@@ -44,5 +44,16 @@ HEADER: The header of the node typically includes metadata such as the number of
 BTREE_MAX_KEY_SIZE and BTREE_MAX_VAL_SIZE: These represent the maximum sizes of keys and values respectively that can be stored in the B-tree. Including these in the calculation ensures that enough space is allocated within the node to accommodate the largest possible key and value pairs.
 
 By summing up these components, the expression calculates the maximum size that a node in the B-tree can occupy. This calculation is crucial for determining memory requirements and optimizing the design of the B-tree implementation to ensure efficient storage and retrieval of data.
-
 */
+
+// main function for inserting a key
+
+// insert a kv into a node, the result might be split into 2 nodes.
+// the caller is responsible for deallocating the input node
+// and splitting and allocating result node
+func TreeInsert(tree *BTree, node bnode.BNode, key[]byte, val []byte) bnode.BNode {
+	new := bnode.BNode{Data: make([]byte, 2*consts.BTREE_MAX_KEY_SIZE)}
+
+	// where to insert the key ?
+	idx := bnode.
+}
